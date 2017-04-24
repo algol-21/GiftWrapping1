@@ -70,4 +70,9 @@ ax.set_zlabel('Z')
 ax.scatter(*zip(*points))
 ax.add_collection3d(poly)
 
+# ~~~~~
+# for i in xrange(len(points)):
+#     ax.text(points[i,0], points[i,1], points[i,2], i, None)
+# ~~~~~
+
 plt.show()

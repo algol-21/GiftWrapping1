@@ -57,24 +57,55 @@ void find_subfaces(const std::unordered_set<size_t>& hyperface, std::unordered_s
 
 size_t wrapping(const MathVector& normal_of_hyperface, const MathVector& point_of_subface, const MathVector& normal_of_subface, const std::unordered_set<size_t>& indexes_of_candidates, const std::vector<MathVector>& all_points)
 {
+	// ~~~~~
+	double eps = 1e-10;
+	// ~~~~~
+
+	//std::cout << "wrapping:" << std::endl;
 	MathVector vector_in_new_candidate_hyperface = all_points[*indexes_of_candidates.begin()] - point_of_subface;
 	
-	double ctg = -(vector_in_new_candidate_hyperface * normal_of_subface) / (vector_in_new_candidate_hyperface * normal_of_hyperface);
+	// ~~~~~
+	double abs_dot_v_n = fabs(vector_in_new_candidate_hyperface * normal_of_hyperface);
+	if (abs_dot_v_n < eps)
+	{
+		//std::cout << "result: " << *indexes_of_candidates.begin() << std::endl;
+		return *indexes_of_candidates.begin();
+	}
+		
+	// ~~~~~
+
+	double ctg = -(vector_in_new_candidate_hyperface * normal_of_subface) / abs_dot_v_n;
 	double min_ctg = ctg;
 	size_t index_of_point_with_min_ctg = *indexes_of_candidates.begin();
 	
+	//std::cout << *indexes_of_candidates.begin() << ": ctg = " << ctg << "; min_ctg = " << min_ctg << "; index_of_point_with_min_ctg = " << index_of_point_with_min_ctg << std::endl;
+
 	for (auto it = std::next(indexes_of_candidates.begin(), 1); it != indexes_of_candidates.end(); ++it)
 	{
 		vector_in_new_candidate_hyperface = all_points[*it] - point_of_subface;
-		ctg = -(vector_in_new_candidate_hyperface * normal_of_subface) / (vector_in_new_candidate_hyperface * normal_of_hyperface);
+		
+		// ~~~~~
+		abs_dot_v_n = fabs(vector_in_new_candidate_hyperface * normal_of_hyperface);
+		if (abs_dot_v_n < eps)
+		{
+			//std::cout << "result: " << *it << std::endl;
+			return *it;
+		}
+
+		//ctg = -(vector_in_new_candidate_hyperface * normal_of_subface) / (vector_in_new_candidate_hyperface * normal_of_hyperface);
+		ctg = -(vector_in_new_candidate_hyperface * normal_of_subface) / abs_dot_v_n;
+		// ~~~~~
 
 		if (ctg < min_ctg)
 		{
 			min_ctg = ctg;
 			index_of_point_with_min_ctg = *it;
 		}
+
+		//std::cout << *it << ": ctg = " << ctg << "; min_ctg = " << min_ctg << "; index_of_point_with_min_ctg = " << index_of_point_with_min_ctg << std::endl;
 	}
 
+	//std::cout << "result: " << index_of_point_with_min_ctg << std::endl;
 	return index_of_point_with_min_ctg;
 }
 
@@ -125,7 +156,7 @@ void find_first_hyperface(const std::vector<MathVector>& all_points, std::unorde
 		cross_product_vectors.clear();
 		cross_product_vectors.push_back(normal_of_hyperface);
 
-		auto it = std::next(first_hyperface.begin(), 1);
+		auto it = std::next(first_hyperface.begin());
 
 		for (size_t counter_2 = 1; counter_2 < counter_1; ++counter_2)
 		{
@@ -162,8 +193,19 @@ void find_first_hyperface(const std::vector<MathVector>& all_points, std::unorde
 			cross_product_vectors.push_back(coordinate_axis);
 		}
 
+		// ~~~~~
+		MathVector old_normal_of_hyperface = normal_of_hyperface;
+		// ~~~~~
+
 		normal_of_hyperface = MathVector::crossProduct(cross_product_vectors);
-		normal_of_hyperface.normalize();
+
+		// ~~~~~
+		double eps = 1e-5;
+		if (normal_of_hyperface * normal_of_hyperface < eps)
+			normal_of_hyperface = old_normal_of_hyperface;
+		else
+			normal_of_hyperface.normalize();
+		// ~~~~~
 	}
 }
 
@@ -187,8 +229,8 @@ void wrapping_algorithm(const std::vector<MathVector>& all_points, std::unordere
 	std::unordered_set<size_t> current_hyperface;
 	
 	// !!!!!
-	//find_first_hyperface(all_points, current_hyperface);
-	current_hyperface = std::unordered_set<size_t>({ 0, 2, 6 });
+	find_first_hyperface(all_points, current_hyperface);
+	//current_hyperface = std::unordered_set<size_t>({ 0, 2, 6 });
 	// !!!!!
 
 	// Push first hyperface in queue and find its subfaces.
@@ -471,13 +513,13 @@ void testRandomPointCloud(size_t num_of_points)
 int main()
 {
 	// -----
-	size_t num_of_interior_points = 0
-		;
+	size_t num_of_interior_points = 1000;
 
-	/*
+	
 	// ~~~~~~~
 	// Pyramid
 	// ~~~~~~~
+	/*
 	std::vector<MathVector> vertices;
 	vertices.push_back(MathVector({ 0.0, 0.0, 1.0 }));
 	vertices.push_back(MathVector({ -0.5, pow(3, 0.5) / 2.0, 0.0 }));
@@ -489,8 +531,8 @@ int main()
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[3], vertices[1] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[2], vertices[3] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[2], vertices[1], vertices[3] }));
-	
 	*/
+	
 	// +++++
 
 	// ~~~~~~~~~~
@@ -540,28 +582,30 @@ int main()
 	vertices.push_back(MathVector({ -0.692, 0.000, -0.427 }));
 
 	std::vector<std::vector<MathVector>> hyperfaces;
+	
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[9], vertices[2], vertices[6] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[1], vertices[5], vertices[11] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[1], vertices[11], vertices[5] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[11], vertices[1], vertices[8] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[11], vertices[4] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[7], vertices[1] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[1], vertices[8] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[1], vertices[7] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[8], vertices[1] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[9], vertices[3], vertices[7] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[2], vertices[6] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[4], vertices[6], vertices[10] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[1], vertices[7], vertices[5] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[7], vertices[2], vertices[5] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[8], vertices[10], vertices[3] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[6], vertices[2] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[4], vertices[10], vertices[6] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[1], vertices[5], vertices[7] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[7], vertices[5], vertices[2] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[8], vertices[3], vertices[10] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[4], vertices[11], vertices[8] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[9], vertices[2], vertices[7] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[10], vertices[6], vertices[9] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[11], vertices[5] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[9], vertices[7], vertices[2] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[10], vertices[9], vertices[6] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[5], vertices[11] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[2], vertices[5] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[8], vertices[10], vertices[4] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[9], vertices[10] }));
-	hyperfaces.push_back(std::vector<MathVector>({ vertices[6], vertices[4], vertices[0] }));
+	hyperfaces.push_back(std::vector<MathVector>({ vertices[6], vertices[0], vertices[4] }));
 
 	testPolyhedron_3D(num_of_interior_points, vertices, hyperfaces);
+	
 	// -----
 	system("python plot3D.py");
 
