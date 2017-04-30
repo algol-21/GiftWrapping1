@@ -151,7 +151,7 @@
     <ClInclude Include="MathVector.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="plot3D.py" />
+    <None Include="plot_3D4D.py" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

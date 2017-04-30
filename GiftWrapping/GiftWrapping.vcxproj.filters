@@ -28,6 +28,8 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="plot3D.py" />
+    <None Include="plot_3D4D.py">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
