@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_real.hpp>
+#include <boost/math/constants/constants.hpp>
 #include "MathVector.h"
 
 size_t us_hash(const std::unordered_set<size_t>& S)
@@ -54,8 +55,8 @@ void find_subfaces(const std::unordered_set<size_t>& hyperface, std::unordered_s
 }
 
 // -----
-
-size_t wrapping(const MathVector& normal_of_hyperface, const MathVector& point_of_subface, const MathVector& normal_of_subface, const std::unordered_set<size_t>& indexes_of_candidates, const std::vector<MathVector>& all_points)
+// all_points изменяется в несимлициальном случае, потому std::vector<MathVector>& all_points (без const)
+size_t wrapping(bool is_first_hyperface, const MathVector& normal_of_hyperface, const MathVector& point_of_subface, const MathVector& normal_of_subface, const std::unordered_set<size_t>& indexes_of_candidates, std::vector<MathVector>& all_points)
 {
 	// ~~~~~
 	double eps = 1e-10;
@@ -71,11 +72,13 @@ size_t wrapping(const MathVector& normal_of_hyperface, const MathVector& point_o
 
 	if (abs_dot_v_n < eps)
 	{
+		if (!is_first_hyperface)
+			std::cout << "A non-simplicial case is found" << std::endl;
 		// =====
-		if (dot_v_a > 0)
+		//if (dot_v_a > 0)
 			return *indexes_of_candidates.begin();
-		else
-			std::cout << "wrapping warning: \"ctg\" should be = +inf" << std::endl;
+		//else
+		//	std::cout << "wrapping warning: \"ctg\" should be = +inf" << std::endl;
 		// =====
 	}
 		
@@ -99,11 +102,48 @@ size_t wrapping(const MathVector& normal_of_hyperface, const MathVector& point_o
 
 		if (abs_dot_v_n < eps)
 		{
+			if (!is_first_hyperface)
+			{
+				std::cout << "A non-simplicial case is found" << std::endl;
+
+				// To generate a random offset vector ...
+				
+				double radius = 1;//1e-3;
+				size_t dimension = all_points[0].getDimension();
+
+				boost::mt19937 generator;
+				auto distribution = boost::uniform_real<>(0.0, 2.0 * boost::math::constants::pi<double>());
+
+				std::vector<double> angles(dimension - 1);
+				
+				for (size_t i = 0; i < dimension - 1; ++i)
+					angles[i] = distribution(generator);
+
+
+				//std::vector<double> offset(dimension, radius);
+				MathVector offset(std::vector<double>(dimension, radius));
+
+				for (size_t coordinate = 0; coordinate < dimension; ++coordinate)
+				{
+					for (size_t i = 0; i < dimension - coordinate - 1; ++i)
+						offset[coordinate] *= cos(angles[i]);
+
+					if (coordinate != 0)
+						offset[coordinate] *= sin(angles[dimension - coordinate - 1]);
+				}
+
+				// Get a moved point
+				// -----
+				//all_points[*it] += offset;
+				all_points[*it] = all_points[*it] + offset;
+				// -----
+			}
+				
 			// =====
-			if (dot_v_a > 0)
+			//if (dot_v_a > 0)
 				return *it;
-			else
-				continue;
+			//else
+			//	continue;
 			// =====
 		}
 
@@ -128,8 +168,8 @@ void create_coordinate_axis(size_t num_of_coordinate, size_t dimension, MathVect
 	coordinate_axis[num_of_coordinate] = 1.0;
 }
 
-
-void find_first_hyperface(const std::vector<MathVector>& all_points, std::unordered_set<size_t>& first_hyperface)
+// Формально меняет all_points, но на самом деле нет
+void find_first_hyperface(std::vector<MathVector>& all_points, std::unordered_set<size_t>& first_hyperface)
 {
 	// Initialize remaining indexes, which can be considered.
 	std::unordered_set<size_t> indexes_of_candidates;
@@ -185,7 +225,7 @@ void find_first_hyperface(const std::vector<MathVector>& all_points, std::unorde
 		normal_of_subface = MathVector::crossProduct(cross_product_vectors);
 		normal_of_subface.normalize();
 
-		new_index = wrapping(normal_of_hyperface, all_points[*first_hyperface.begin()], normal_of_subface, indexes_of_candidates, all_points);
+		new_index = wrapping(true, normal_of_hyperface, all_points[*first_hyperface.begin()], normal_of_subface, indexes_of_candidates, all_points);
 		first_hyperface.insert(new_index);
 		indexes_of_candidates.erase(new_index);
 
@@ -221,8 +261,8 @@ void find_first_hyperface(const std::vector<MathVector>& all_points, std::unorde
 	}
 }
 
-
-void wrapping_algorithm(const std::vector<MathVector>& all_points, std::unordered_set<std::unordered_set<size_t>, decltype(&us_hash)>& convex_hull)
+// all_points - копирование, поскольку они будут изменяться в несимплициальном случае (было const ...&)
+void wrapping_algorithm(std::vector<MathVector> all_points, std::unordered_set<std::unordered_set<size_t>, decltype(&us_hash)>& convex_hull)
 {
 	// -----
 	convex_hull.clear();
@@ -346,7 +386,7 @@ void wrapping_algorithm(const std::vector<MathVector>& all_points, std::unordere
 			for (auto vertex : current_hyperface)
 				interest_indexes_of_points.erase(vertex);
 			// ?????
-			new_vertex_index = wrapping(normal_of_hyperface, all_points[*subface.begin()], normal_of_subface, interest_indexes_of_points, all_points);
+			new_vertex_index = wrapping(false, normal_of_hyperface, all_points[*subface.begin()], normal_of_subface, interest_indexes_of_points, all_points);
 			
 			// Add new hyperface in queue.
 			new_hyperface = subface;
@@ -627,7 +667,7 @@ int main()
 	// ~~~~
 	// Cube
 	// ~~~~
-	
+	/*
 	std::vector<MathVector> vertices;
 
 	vertices.push_back(MathVector({ -1.0, -1.0, -1.0 }));
@@ -659,7 +699,7 @@ int main()
 
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[1], vertices[2] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[2], vertices[1] }));
-	
+	*/
 	
 	/*
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[0], vertices[1], vertices[3], vertices[2] }));
@@ -745,7 +785,7 @@ int main()
 	// ~~~~~~~~~
 	// Tesseract
 	// ~~~~~~~~~
-/*
+
 	std::vector<MathVector> vertices;
 
 	vertices.push_back(MathVector({ -1.0, -1.0, -1.0, -1.0 }));
@@ -800,7 +840,7 @@ int main()
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[15], vertices[14], vertices[12], vertices[13] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[7], vertices[6], vertices[4], vertices[5] }));
 	hyperfaces.push_back(std::vector<MathVector>({ vertices[3], vertices[2], vertices[0], vertices[1] }));
-*/
+
 
 	testPolyhedron(num_of_interior_points, vertices, hyperfaces);
 
